@@ -616,6 +616,12 @@ class APIHandler(JupyterHandler):
                 self.request.headers.get('Origin', ''))
 
 
+class CloudAPIHandler(APIHandler):
+    @property
+    def contents_manager(self):
+        return self.settings['cloud_contents_manager']
+
+
 class Template404(JupyterHandler):
     """Render our 404 template"""
     def prepare(self):

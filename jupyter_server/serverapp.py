@@ -77,6 +77,7 @@ from .services.config import ConfigManager
 from .services.contents.manager import AsyncContentsManager, ContentsManager
 from .services.contents.filemanager import AsyncFileContentsManager, FileContentsManager
 from .services.contents.largefilemanager import LargeFileManager
+from .services.contents.cloudfilemanager import CloudFileManager
 from .services.sessions.sessionmanager import SessionManager
 from .gateway.managers import GatewayKernelManager, GatewayKernelSpecManager, GatewaySessionManager, GatewayClient
 
@@ -171,13 +172,13 @@ def load_handlers(name):
 
 class ServerWebApplication(web.Application):
 
-    def __init__(self, jupyter_app, default_services, kernel_manager, contents_manager,
+    def __init__(self, jupyter_app, default_services, kernel_manager, contents_manager, cloud_contents_manager,
                  session_manager, kernel_spec_manager,
                  config_manager, extra_services, log,
                  base_url, default_url, settings_overrides, jinja_env_options):
 
         settings = self.init_settings(
-            jupyter_app, kernel_manager, contents_manager,
+            jupyter_app, kernel_manager, contents_manager, cloud_contents_manager,
             session_manager, kernel_spec_manager, config_manager,
             extra_services, log, base_url,
             default_url, settings_overrides, jinja_env_options)
@@ -185,7 +186,7 @@ class ServerWebApplication(web.Application):
 
         super(ServerWebApplication, self).__init__(handlers, **settings)
 
-    def init_settings(self, jupyter_app, kernel_manager, contents_manager,
+    def init_settings(self, jupyter_app, kernel_manager, contents_manager, cloud_contents_manager,
                       session_manager, kernel_spec_manager,
                       config_manager, extra_services,
                       log, base_url, default_url, settings_overrides,
@@ -264,6 +265,7 @@ class ServerWebApplication(web.Application):
             # managers
             kernel_manager=kernel_manager,
             contents_manager=contents_manager,
+            cloud_contents_manager=cloud_contents_manager,
             session_manager=session_manager,
             kernel_spec_manager=kernel_spec_manager,
             config_manager=config_manager,
@@ -1117,6 +1119,14 @@ class ServerApp(JupyterApp):
         help=_('The content manager class to use.')
     )
 
+    cloud_contents_manager_class = Type(
+        default_value=CloudFileManager,
+        klass=ContentsManager,
+        config=True,
+        help=_('The cloud notebook manager class to use.')
+    )
+
+
     # Throws a deprecation warning to notebook based contents managers.
     @observe('contents_manager_class')
     def _observe_contents_manager_class(self, change):
@@ -1393,6 +1403,10 @@ class ServerApp(JupyterApp):
             parent=self,
             log=self.log,
         )
+        self.cloud_contents_manager = self.cloud_contents_manager_class(
+            parent=self,
+            log=self.log,
+        )
         self.session_manager = self.session_manager_class(
             parent=self,
             log=self.log,
@@ -1442,7 +1456,7 @@ class ServerApp(JupyterApp):
             sys.exit(1)
 
         self.web_app = ServerWebApplication(
-            self, self.default_services, self.kernel_manager, self.contents_manager,
+            self, self.default_services, self.kernel_manager, self.contents_manager, self.cloud_contents_manager,
             self.session_manager, self.kernel_spec_manager,
             self.config_manager, self.extra_services,
             self.log, self.base_url, self.default_url, self.tornado_settings,
